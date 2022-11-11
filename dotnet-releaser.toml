@@ -1,0 +1,24 @@
+# configuration file for dotnet-releaser
+[msbuild]
+project = "HostPingerService.sln"
+configuration = "Release"
+
+[github]
+user = "seikosantana"
+repo = "HostPingService"
+
+[msbuild.properties]
+PublishTrimmed = false
+PublishSingleFile = true
+SelfContained = false
+PublishReadyToRun = false
+CopyOutputSymbolsToPublishDirectory = false
+SkipCopyingSymbolsToOutputDirectory = true 
+
+[[pack]]
+rid = ["win-x64", "linux-x64", "linux-arm", "linux-arm64"]
+kinds = ["zip"]
+
+[[pack]]
+publish = false
+rid = ["win-arm", "win-arm64", "rhel-x64", "osx-x64", "osx-arm64"]
