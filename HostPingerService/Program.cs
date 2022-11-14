@@ -4,7 +4,8 @@ using HostPingerService;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-IHostBuilder builder = Host.CreateDefaultBuilder(args);
+IHostBuilder builder =  Host.CreateDefaultBuilder(args);
+builder.UseContentRoot(AppContext.BaseDirectory);
 if (OperatingSystem.IsWindows())
 {
     builder.UseWindowsService();
