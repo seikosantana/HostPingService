@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.Eventing.Reader;
 using System.Net.NetworkInformation;
 using System.Reflection.Emit;
@@ -57,6 +58,7 @@ public class PingerService : BackgroundService
         }
 
         using Ping pinger = new Ping();
+        int retryCount = 0;
         while (!stoppingToken.IsCancellationRequested)
         {
             foreach (string host in Settings!.Hosts!)
@@ -76,13 +78,54 @@ public class PingerService : BackgroundService
                             Enum.GetName(reply.Status),
                             reply.RoundtripTime
                         );
+                        throw new PingException("Ping not successful");
                     }
                 }
                 catch (Exception ex)
                 {
                     Logger.LogError(ex, "Unable to perform ping {Host}", host);
+                    if (string.IsNullOrWhiteSpace(Settings.FailureCommand))
+                    {
+                        Logger.LogInformation("Failure command not set");
+                        continue;
+                    }
+
+                    retryCount++;
+                    Logger.LogError("Failure {failure} out of {maxFailures} before executing failure command",
+                        retryCount, Settings.FailureRetriesBeforeCommand);
+
+                    if (retryCount == Settings.FailureRetriesBeforeCommand)
+                    {
+                        retryCount = 0;
+                        Logger.LogInformation("Executing command: {command}", Settings.FailureCommand);
+                        try
+                        {
+                            var p = Process.Start(new ProcessStartInfo()
+                            {
+                                FileName = "cmd.exe",
+                                Arguments = "/C " + Settings.FailureCommand,
+                                CreateNoWindow = true,
+                                WindowStyle = ProcessWindowStyle.Hidden,
+                                RedirectStandardOutput = true,
+                                RedirectStandardError = true
+                            });
+                            if (p is not null)
+                            {
+                                await p.WaitForExitAsync();
+                                Logger.LogInformation("Process exited with stdout {message}",
+                                    p.StandardOutput.ReadToEnd());
+                                Logger.LogInformation("Process exited with stderr {message}",
+                                    p.StandardError.ReadToEnd());
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Logger.LogError(e, "Unable to execute failure command");
+                        }
+                    }
                 }
             }
+
             Logger.LogInformation("Next ping in {Ms}ms", Settings.IntervalMs!.Value);
             await Task.Delay(Settings!.IntervalMs!.Value, stoppingToken);
         }
